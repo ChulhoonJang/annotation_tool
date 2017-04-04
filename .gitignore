@@ -1,0 +1,7 @@
+*.lib
+packages/
+x64/
+annotation_tool/Debug/
+*.user
+*.sdf
+*.opensdf
