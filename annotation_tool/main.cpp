@@ -147,11 +147,12 @@ int restore_current_frame(string root){
 int main(int argc, char *argv[], char *envp[])
 {
 	string root, attribute;
-	string image_dir, annotation_dir, attribute_dir;
+	string image_dir, annotation_dir, attribute_dir;	
 
 	if (argc < 2) return 0;
 	root = argv[1];
 	attribute = argv[2];
+
 
 	image_dir = root + "/images";
 	annotation_dir = root + "/annotations";
@@ -163,8 +164,10 @@ int main(int argc, char *argv[], char *envp[])
 	vector<int> params;
 	params.push_back(CV_IMWRITE_JPEG_QUALITY);
 	params.push_back(100);
-
-	int frame = restore_current_frame(annotation_dir);
+		
+	int frame;
+	if (argc > 3) frame = atoi(argv[3]);
+	else frame = restore_current_frame(annotation_dir);
 
 	for (;;){
 		// load image
