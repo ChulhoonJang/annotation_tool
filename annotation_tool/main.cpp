@@ -174,7 +174,10 @@ int main(int argc, char *argv[], char *envp[])
 		char image_path[100];
 		sprintf_s(image_path, 100, "%s/%08d.jpg", image_dir.c_str(), frame);
 		Mat img = imread(image_path);
-		if (img.data == NULL) continue;
+		if (img.data == NULL) {
+			img = Mat::zeros(Size(320, 160), CV_8UC3);
+			putText(img, "No input image", Point(2, 24), 1, 1, CV_RGB(255, 0, 0));
+		}
 
 		namedWindow("sample", CV_WINDOW_NORMAL);
 		moveWindow("sample", 10, 10);
@@ -193,19 +196,34 @@ int main(int argc, char *argv[], char *envp[])
 
 		while (true){
 			int cKey = waitKey();				
-			if (cKey == 'x' || cKey == 2555904 || cKey == 32){ // next image
+			if (cKey == 'x'){ // next image
 				polygon_groups.clear();
 				polygon.clear();
 				redraw();
 				frame++;
 				break;
 			}
-			else if (cKey == 'z' || cKey == 2424832){
+			else if(cKey == 2555904){ // next 10 image
+				polygon_groups.clear();
+				polygon.clear();
+				redraw();
+				frame = frame + 10;
+				break;
+			}
+			else if (cKey == 'z'){
 				polygon_groups.clear();
 				polygon.clear();
 				redraw();
 				frame--;
 				if (frame == 0) frame = 1;
+				break;
+			}
+			else if (cKey == 2424832){
+				polygon_groups.clear();
+				polygon.clear();
+				redraw();
+				frame = frame - 10;
+				if (frame <= 0) frame = 1;
 				break;
 			}
 			else if (cKey == 'a'){ // add
