@@ -2,7 +2,7 @@
 #include <iostream>
 #include <opencv\highgui.h>
 #include <opencv2\imgproc\imgproc.hpp>
-
+#define annotation_T map<string, vector<vector<Point>> > 
 
 using namespace std;
 using namespace cv;
@@ -14,6 +14,9 @@ Mat img_display;
 bool add_ready(false);
 vector<Point> polygon;
 vector<vector<Point>> polygon_groups;
+Scalar color_map[5] = { CV_RGB(255, 0, 0), CV_RGB(0, 255, 0), CV_RGB(0, 0, 255), CV_RGB(255, 255, 0), CV_RGB(0, 255, 255) };
+
+annotation_T map_annotations;
 
 void DrawPolygon(Mat & src, vector<Point> polygon, Scalar line_color, bool draw_circle){
 	for (int i = 0; i < (int)polygon.size() - 1; i++){
@@ -36,6 +39,12 @@ void DrawPolygonGroup(Mat & src, vector<vector<Point>> polygon_groups){
 	}
 }
 
+void DrawPolygonGroup(Mat & src, vector<vector<Point>> polygon_groups, Scalar color){
+	for (int i = 0; i < (int)polygon_groups.size(); i++){
+		DrawPolygon(src, polygon_groups[i], color, false);
+	}
+}
+
 void GeneratePolyMask(Mat src, Mat & dst, vector<Point> poly){
 	Mat img_bin = Mat::zeros(src.size(), CV_8UC1);
 
@@ -48,13 +57,18 @@ void GeneratePolyMask(Mat src, Mat & dst, vector<Point> poly){
 void redraw(){
 	Mat img = img_display.clone();
 	if (img.data != NULL){
-		DrawPolygonGroup(img, polygon_groups);
+		int i = 0;
+		for (annotation_T::iterator it = map_annotations.begin(); it != map_annotations.end(); it++, i++){
+			DrawPolygonGroup(img, it->second, color_map[i]);
+		}
+
 		if (add_ready){
 			DrawPolygon(img, polygon, CV_RGB(30, 144, 255), false);
 		}
 		else{
 			DrawPolygon(img, polygon, CV_RGB(100, 149, 237), true);
 		}
+
 		imshow("sample", img);
 	}
 }
@@ -106,12 +120,42 @@ void export_annotation(FileStorage & f, string name){
 	f << "]";
 }
 
+void export_annotation(FileStorage & f){
+	f << "attribute" << "[";
+	for (annotation_T::iterator it = map_annotations.begin(); it != map_annotations.end(); it++){
+		f << it->first.c_str();
+	}
+	f << "]";
+
+	for (annotation_T::iterator it = map_annotations.begin(); it != map_annotations.end(); it++){
+		f << it->first.c_str() << "[";
+		vector<vector<Point>> poly_groups = it->second;
+
+		for (int i = 0; i < (int)poly_groups.size(); i++)
+		{
+			f << "{:" << "x" << "[:";
+			for (int j = 0; j < (int)poly_groups[i].size(); j++){
+				f << poly_groups[i][j].x;
+			}
+			f << "]";
+
+			f << "y" << "[:";
+			for (int j = 0; j < (int)poly_groups[i].size(); j++){
+				f << poly_groups[i][j].y;
+			}
+			f << "]" << "}";
+		}
+		f << "]";
+
+	}
+}
+
 void import_annotation(FileStorage & f, string name){
 	FileNode fn = f[name];
 	FileNodeIterator it = fn.begin(), it_end = fn.end();
 
 	polygon_groups.clear();
-	for (int idx = 0; it != it_end; ++it, idx++){
+	for (; it != it_end; ++it){
 		vector<Point> p;
 		vector<int> x_val, y_val;
 		(*it)["x"] >> x_val;
@@ -120,6 +164,27 @@ void import_annotation(FileStorage & f, string name){
 			p.push_back(Point(x_val[i], y_val[i]));
 		}
 		polygon_groups.push_back(p);
+	}
+}
+
+void import_annotation(FileStorage & f){
+	FileNode fn = f["attribute"];
+	for (FileNodeIterator it_attribute = fn.begin(); it_attribute != fn.end(); it_attribute++){
+		string attribute = *it_attribute;
+		FileNode fn_attribute = f[attribute];
+
+		vector<vector<Point>> poly_groups;	
+		for (FileNodeIterator it = fn_attribute.begin(); it != fn_attribute.end(); it++){
+			vector<Point> p;
+			vector<int> x_val, y_val;
+			(*it)["x"] >> x_val;
+			(*it)["y"] >> y_val;
+			for (int i = 0; i<(int)x_val.size(); i++){
+				p.push_back(Point(x_val[i], y_val[i]));
+			}
+			if(!p.empty()) poly_groups.push_back(p);
+		}
+		map_annotations.insert(pair<string, vector<vector<Point>>>(attribute, poly_groups));
 	}
 }
 
@@ -151,15 +216,15 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (argc < 2) return 0;
 	root = argv[1];
-	attribute = argv[2];
+	//attribute = argv[2];
 
 
 	image_dir = root + "/images";
 	annotation_dir = root + "/annotations";
-	attribute_dir = annotation_dir + '/' + attribute;
+	//attribute_dir = annotation_dir + '/' + attribute;
 	
 	_mkdir(annotation_dir.c_str());
-	_mkdir(attribute_dir.c_str());
+	//_mkdir(attribute_dir.c_str());
 
 	vector<int> params;
 	params.push_back(CV_IMWRITE_JPEG_QUALITY);
@@ -187,31 +252,32 @@ int main(int argc, char *argv[], char *envp[])
 		img_display = img.clone();
 
 		char file_name[100];
-		sprintf_s(file_name, 100, "%s/%08d.yml", attribute_dir.c_str(), frame);
+		sprintf_s(file_name, 100, "%s/%08d.yml", annotation_dir.c_str(), frame);
 		FileStorage fr;
 		if (fr.open(file_name, FileStorage::READ) == true){
-			import_annotation(fr, attribute);
+			//import_annotation(fr, attribute);
+			import_annotation(fr);
 		}
 		redraw();
 
 		while (true){
 			int cKey = waitKey();				
 			if (cKey == 'x'){ // next image
-				polygon_groups.clear();
+				map_annotations.clear();
 				polygon.clear();
 				redraw();
 				frame++;
 				break;
 			}
 			else if(cKey == 2555904){ // next 10 image
-				polygon_groups.clear();
+				map_annotations.clear();
 				polygon.clear();
 				redraw();
 				frame = frame + 10;
 				break;
 			}
 			else if (cKey == 'z'){
-				polygon_groups.clear();
+				map_annotations.clear();
 				polygon.clear();
 				redraw();
 				frame--;
@@ -219,7 +285,7 @@ int main(int argc, char *argv[], char *envp[])
 				break;
 			}
 			else if (cKey == 2424832){
-				polygon_groups.clear();
+				map_annotations.clear();
 				polygon.clear();
 				redraw();
 				frame = frame - 10;
@@ -228,28 +294,60 @@ int main(int argc, char *argv[], char *envp[])
 			}
 			else if (cKey == 'a'){ // add
 				if (add_ready) {
-					polygon_groups.push_back(polygon);
+					string name;
+					cout << "[marker, vehicle, curb] name: ";
+					cin >> name;
+
+					annotation_T::iterator it = map_annotations.find(name);
+					if (it != map_annotations.end()){ // existing
+						if (!polygon.empty()){
+							it->second.push_back(polygon);
+						}
+					}
+					else{ // new
+						if (!polygon.empty()){
+							vector<vector<Point>> poly_groups;
+							poly_groups.push_back(polygon);
+							map_annotations.insert(pair<string, vector<vector<Point>>>(name, poly_groups));
+						}
+					}
+					
 					polygon.clear();
 					redraw();
 
 					// save
 					FileStorage f(file_name, FileStorage::WRITE);
-					export_annotation(f, attribute);
+					export_annotation(f);					
 					f.release();
 
 					save_current_frame(annotation_dir, frame);
 				}
 			}
 			else if (cKey == 'e'){ // erase
-				if (!polygon_groups.empty()) {
-					polygon_groups.pop_back();
-					redraw();
+				string name;
+				cout << "attribute list: " << endl;
+				for (annotation_T::iterator it = map_annotations.begin(); it != map_annotations.end(); it++){
+					cout << " - " << it->first << " (size: " << it->second.size() << ")" << endl;
+				}
+				cout << "select: ";
+				cin >> name;
 
-					FileStorage f(file_name, FileStorage::WRITE);
-					export_annotation(f, attribute);
-					f.release();
+				annotation_T::iterator it = map_annotations.find(name);
+				if (it == map_annotations.end()){
+					cout << "no attribute in the list, retry";
+				}
+				else{
+					if (!it->second.empty()){
+						it->second.pop_back();
+						redraw();
 
-					save_current_frame(annotation_dir, frame);
+						FileStorage f(file_name, FileStorage::WRITE);
+						//export_annotation(f, attribute);
+						export_annotation(f);
+						f.release();
+
+						save_current_frame(annotation_dir, frame);
+					}
 				}
 			}
 			else if (cKey == 'c'){ // clear polygon
