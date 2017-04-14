@@ -295,8 +295,19 @@ int main(int argc, char *argv[], char *envp[])
 			else if (cKey == 'a'){ // add
 				if (add_ready) {
 					string name;
-					cout << "[marker, vehicle, curb] name: ";
+					cout << "[marker(m), vehicle(v), curb(c)] name: ";
 					cin >> name;
+
+					if (strcmp(name.c_str(), "m")==0) 
+						name = "marker";
+					else if (strcmp(name.c_str(), "v")==0)
+						name = "vehicle";
+					else if (strcmp(name.c_str(), "c")==0)
+						name = "curb";
+					else{
+						cout << "wrong name!!";
+						break;
+					}						
 
 					annotation_T::iterator it = map_annotations.find(name);
 					if (it != map_annotations.end()){ // existing
@@ -332,9 +343,20 @@ int main(int argc, char *argv[], char *envp[])
 				cout << "select: ";
 				cin >> name;
 
+				if (strcmp(name.c_str(), "m") == 0)
+					name = "marker";
+				else if (strcmp(name.c_str(), "v") == 0)
+					name = "vehicle";
+				else if (strcmp(name.c_str(), "c") == 0)
+					name = "curb";
+				else{
+					cout << "wrong name!!" << endl;
+					break;
+				}
+
 				annotation_T::iterator it = map_annotations.find(name);
 				if (it == map_annotations.end()){
-					cout << "no attribute in the list, retry";
+					cout << "no attribute in the list, retry" << endl;
 				}
 				else{
 					if (!it->second.empty()){
