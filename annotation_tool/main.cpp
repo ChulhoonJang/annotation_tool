@@ -211,15 +211,20 @@ int restore_current_frame(string root){
 
 int main(int argc, char *argv[], char *envp[])
 {
-	string root, attribute;
+	string root, folder_name;
 	string image_dir, annotation_dir, attribute_dir;	
 
 	if (argc < 2) return 0;
 	root = argv[1];
-	//attribute = argv[2];
-
-
-	image_dir = root + "/images";
+	if (argc ==3) folder_name = argv[2];
+	
+	if (folder_name.empty()){
+		image_dir = root + "/images";
+	}
+	else{
+		image_dir = root + "/" + folder_name;
+	}
+	
 	annotation_dir = root + "/annotations";
 	//attribute_dir = annotation_dir + '/' + attribute;
 	
@@ -237,7 +242,9 @@ int main(int argc, char *argv[], char *envp[])
 	for (;;){
 		// load image
 		char image_path[100];
+		char image_file_name[100];
 		sprintf_s(image_path, 100, "%s/%08d.jpg", image_dir.c_str(), frame);
+		sprintf_s(image_file_name, 100, "%08d.jpg", frame);
 		Mat img = imread(image_path);
 		if (img.data == NULL) {
 			img = Mat::zeros(Size(320, 160), CV_8UC3);
@@ -247,7 +254,7 @@ int main(int argc, char *argv[], char *envp[])
 		namedWindow("sample", CV_WINDOW_NORMAL);
 		moveWindow("sample", 10, 10);
 		setMouseCallback("sample", CallBackFunc, NULL);
-		putText(img, image_path, Point(2, 7), FONT_HERSHEY_SIMPLEX, 0.25, CV_RGB(0, 0, 255));
+		putText(img, image_file_name, Point(2, 7), FONT_HERSHEY_SIMPLEX, 0.25, CV_RGB(0, 0, 255));
 
 		img_display = img.clone();
 
